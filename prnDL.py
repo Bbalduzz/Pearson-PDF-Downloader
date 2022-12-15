@@ -27,7 +27,16 @@ class Metadata:
 		assets = requests.get('https://prism.pearsoned.com/api/contenttoc/v1/assets', params=params, headers=headers).json()
 		return int(assets['slates'][-1]['pageno'])
 	def toc(self):
+		toc = []
 		assets = requests.get('https://prism.pearsoned.com/api/contenttoc/v1/assets', params=params, headers=headers).json()
+		for j in assets['children']:
+			try:
+				toc.append([int(j['level']), j['title'], int(j['pageno'])-1])
+				if j.get('children') != None:
+					for i in j['children']:
+						toc.append([int(i['level']), i['title'], int(i['pageno'])-1])
+			except: break
+		return toc
 
 meta = Metadata()
 
@@ -40,6 +49,7 @@ def dl():
 	uuid = meta.uuid()
 	pagenum = meta.npages()
 	book = meta.id()
+	toc = meta.toc()
 	print(f'''
 [+] Book found:
 	- title: {book["title"]}
@@ -54,6 +64,7 @@ def dl():
 		pdfbytes = page_doc.convert_to_pdf()
 		doc.insert_pdf(fitz.open("pdf",pdfbytes))
 		progress_bar(n, pagenum)
+	doc.set_toc(toc)
 	doc.save(f'{book["title"]}.pdf')
 
 dl()
