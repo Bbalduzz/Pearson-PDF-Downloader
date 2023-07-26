@@ -1,5 +1,5 @@
-import requests, json, os, shutil
-import fitz
+import requests, json, os, shutil, fitz
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 url = input('[+] Enter book URL:\n')
 prodid = url.split('/')[4]
@@ -45,26 +45,43 @@ def progress_bar(progress, total):
     bar = '█' * int(percent) + '-' * (100 - int(percent))
     print(f'\r[+] Downloading book... |{bar}| {percent:.2f}%', end='\r')
 
+def get_page(n):
+    uuid = meta.uuid()
+    page_data = requests.get(f'https://etext-content.gls.pearson-intl.com/eplayer/pdfassets/prod1/{prodid}/{uuid}/pages/page{n}', headers={'Cookie': page_cookie, 'token': bearer_token}).content
+    page_doc = fitz.open(stream=page_data, filetype="png")
+    pdfbytes = page_doc.convert_to_pdf()
+    return fitz.open("pdf", pdfbytes)
+
 def dl():
-	uuid = meta.uuid()
-	pagenum = meta.npages()
-	book = meta.id()
-	toc = meta.toc()
-	print(f'''
-[+] Book found:
-	- title: {book["title"]}
-	- author: {book["author"]}
-	- pages: {str(pagenum)}
-''')
-	doc = fitz.Document()
-	progress_bar(0, pagenum)
-	for n in range(pagenum):
-		page_data = requests.get(f'https://etext-content.gls.pearson-intl.com/eplayer/pdfassets/prod1/{prodid}/{uuid}/pages/page{n}', headers={'Cookie': page_cookie, 'token': bearer_token}).content
-		page_doc = fitz.open(stream=page_data, filetype="png")
-		pdfbytes = page_doc.convert_to_pdf()
-		doc.insert_pdf(fitz.open("pdf",pdfbytes))
-		progress_bar(n, pagenum)
-	doc.set_toc(toc)
-	doc.save(f'{book["title"]}.pdf')
+    uuid = meta.uuid()
+    pagenum = meta.npages()
+    book = meta.id()
+    toc = meta.toc()
+    print(f'''
+    [+] Book found:
+        - title: {book["title"]}
+        - author: {book["author"]}
+        - pages: {str(pagenum)}
+    ''')
+    doc = fitz.Document()
+    pages = []
+    next_page_to_add = 0
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = {executor.submit(get_page, n): n for n in range(pagenum)}
+        for future in as_completed(futures):
+            n = futures[future]
+            try:
+                page = future.result()
+                pages.append((n, page))
+                pages.sort()
+                while pages and pages[0][0] == next_page_to_add:
+                    _, page = pages.pop(0)
+                    doc.insert_pdf(page)
+                    next_page_to_add += 1
+                    progress_bar(next_page_to_add, pagenum)
+            except Exception as exc:
+                print(f'Page {n} generated an exception: {exc}')
+    doc.set_toc(toc)
+    doc.save(f'{book["title"]}.pdf')
 
 dl()
