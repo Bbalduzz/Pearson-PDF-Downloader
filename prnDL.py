@@ -9,9 +9,6 @@ headers = {'x-authorization': bearer_token}
 response = requests.get('https://etext-ise.pearson.com/marin/api/1.0/products/99695/token', params={'setCookie': 'true'}, headers={'authorization': f'Bearer {bearer_token}'})
 params = {'productId': response.json()["value"]}
 
-def get_params():
-
-
 class Metadata:
 	def __init__(self):
 		pass
