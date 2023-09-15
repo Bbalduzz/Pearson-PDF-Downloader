@@ -8,5 +8,4 @@ Download your pearson ebooks as pdfs from reader+
 - follow the steps in the video ;)
 
 ### Demo Video
-https://user-images.githubusercontent.com/81587335/207303554-bf466786-f2f8-470f-b53e-bd170886ddf2.mov
-
+https://github.com/Bbalduzz/Pearson-PDF-Downloader/assets/81587335/8eee4677-fa4f-4500-b39a-23355ba23ab0
