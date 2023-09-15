@@ -3,40 +3,43 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 url = input('[+] Enter book URL:\n')
 prodid = url.split('/')[4]
+params = {'productId': prodid}
 
 with open('cookies.txt', 'r') as f: bearer_token  = f.readline()
 headers = {'x-authorization': bearer_token}
 response = requests.get(f'https://etext-ise.pearson.com/marin/api/1.0/products/{prodid}/token', params={'setCookie': 'true'}, headers={'authorization': f'Bearer {bearer_token}'})
-params = {'productId': response.json()["value"]}
+etext_cdn_token = response.json()["value"]
 
 class Metadata:
-	def __init__(self):
-		pass
-	def id(self):
-		infos = requests.get(f'https://etext-ise.pearson.com/marin/api/1.0/products/{prodid}', headers={'authorization': f'Bearer {bearer_token}'}).json()
-		book = {
-			'title': infos['title'],
-			'author': infos['authors'],
-		}
-		return book
-	def uuid(self):
-		infos = requests.get(f'https://etext-ise.pearson.com/marin/api/1.0/products/{prodid}', headers={'authorization': f'Bearer {bearer_token}'}).json()
-		server_side_uuid = infos['serverSideUuid']
-		return server_side_uuid
-	def npages(self):
-		assets = requests.get('https://prism.pearsoned.com/api/contenttoc/v1/assets', params=params, headers=headers).json()
-		return int(assets['slates'][-1]['pageno'])
-	def toc(self):
-		toc = []
-		assets = requests.get('https://prism.pearsoned.com/api/contenttoc/v1/assets', params=params, headers=headers).json()
-		for j in assets['children']:
-			try:
-				toc.append([int(j['level']), j['title'], int(j['pageno'])-1])
-				if j.get('children') != None:
-					for i in j['children']:
-						toc.append([int(i['level']), i['title'], int(i['pageno'])-1])
-			except: break
-		return toc
+    def __init__(self):
+        pass
+    def id(self):
+        infos = requests.get(f'https://etext-ise.pearson.com/marin/api/1.0/products/{prodid}', headers={'authorization': f'Bearer {bearer_token}'}).json()
+        book = {
+            'title': infos['title'],
+            'author': infos['authors'],
+        }
+        return book
+    def uuid(self):
+        infos = requests.get(f'https://etext-ise.pearson.com/marin/api/1.0/products/{prodid}', headers={'authorization': f'Bearer {bearer_token}'}).json()
+        server_side_uuid = infos['serverSideUuid']
+        return server_side_uuid
+    def npages(self):
+        assets = requests.get('https://prism.pearsoned.com/api/contenttoc/v1/assets', params=params, headers=headers).json()
+        if 'Unable' not in assets:
+            return int(assets['slates'][-1]['pageno'])
+    def toc(self):
+        toc = []
+        assets = requests.get('https://prism.pearsoned.com/api/contenttoc/v1/assets', params=params, headers=headers)
+        assets = assets.json()
+        for j in assets['children']:
+            try:
+                toc.append([int(j['level']), j['title'], int(j['pageno'])-1])
+                if j.get('children') != None:
+                    for i in j['children']:
+                        toc.append([int(i['level']), i['title'], int(i['pageno'])-1])
+            except: break
+        return toc
 
 meta = Metadata()
 
@@ -47,7 +50,7 @@ def progress_bar(progress, total):
 
 def get_page(n):
     uuid = meta.uuid()
-    page_data = requests.get(f'https://etext-content.gls.pearson-intl.com/eplayer/pdfassets/prod1/{prodid}/{uuid}/pages/page{n}', headers={'Cookie': page_cookie, 'token': bearer_token}).content
+    page_data = requests.get(f'https://etext-content.gls.pearson-intl.com/eplayer/pdfassets/prod1/{prodid}/{uuid}/pages/page{n}', headers={'Cookie': f"etext-cdn-token={etext_cdn_token}", 'token': bearer_token}).content
     page_doc = fitz.open(stream=page_data, filetype="png")
     pdfbytes = page_doc.convert_to_pdf()
     return fitz.open("pdf", pdfbytes)
