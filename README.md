@@ -4,7 +4,7 @@ Download your pearson ebooks as pdfs from reader+
 ### How to
 - install python
 - install dependences:
-  - `pip install fitz`
+  - `pip install PyMuPDF`
 - follow the steps in the video ;)
 
 ### Demo Video
